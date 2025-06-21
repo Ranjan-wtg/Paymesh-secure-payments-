@@ -2,6 +2,8 @@ PayMesh: Multi-Channel Secure Payment System
 
 A production-ready, AI-powered payment platform that intelligently routes transactions across multiple channels while providing enterprise-grade fraud detection and security analytics.
 
+See the full PayMesh workflow in action: Paymesh_demo.mp4
+
 Key Features
 
 Multi-Channel Routing
@@ -39,5 +41,7 @@ Individual Component Testing
 - python fraud_test.py - Fraud detection only
 - python phishing_test.py - Phishing detection only  
 - python ledger_test.py - Database operations
+
+
 - python sync_server.py - Backend sync server
 
