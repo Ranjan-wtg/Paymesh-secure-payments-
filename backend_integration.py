@@ -1,5 +1,3 @@
-# backend_integration.py - Complete PayMesh backend with WORKING SMS verification and payment confirmation
-
 import sys
 import sqlite3
 import threading
@@ -7,6 +5,8 @@ import time
 from pathlib import Path
 from datetime import datetime
 from typing import Dict, Any, Optional
+import re
+from word2number import w2n  # Added for voice amount conversion
 
 # Add your backend path
 sys.path.append(r"D:\The New Data Trio")
@@ -208,7 +208,6 @@ except ImportError as e:
     
     sms_phishing_verifier = FallbackSMSVerifier()
     print("📱 Fallback SMS verification system created")
-
 except Exception as e:
     print(f"✗ SMS phishing verifier error: {e}")
     MODULES_STATUS['sms_phishing_verifier'] = False
@@ -732,13 +731,11 @@ class PayMeshBackend:
         
         return combined_result
     
-    # ==================== VOICE TRANSACTION PROCESSING ====================
+    # ==================== FIXED VOICE TRANSACTION PROCESSING ====================
     
     def process_voice_transaction(self, voice_text: str, recipient: str) -> Dict[str, Any]:
         """Process voice-based transaction with enhanced security"""
-        
         # Extract amount from voice text
-        import re
         patterns = [
             r"Rs\s?(\d+)",
             r"(\d+)\s?rupees?",
@@ -752,6 +749,14 @@ class PayMeshBackend:
                 amount = float(match.group(1))
                 break
         
+        # If regex fails, try word-to-number conversion
+        if amount is None:
+            try:
+                amount = w2n.word_to_num(voice_text)
+                print(f"Converted voice amount: {amount}")
+            except Exception as e:
+                print(f"Voice amount conversion failed: {e}")
+        
         if not amount:
             return {
                 "success": False,
@@ -759,6 +764,8 @@ class PayMeshBackend:
                 "reason": "Amount not recognized",
                 "voice_text": voice_text
             }
+        
+        print(f"Voice transaction amount: ₹{amount}")
         
         # Process through enhanced security system
         result = self.process_transaction_with_enhanced_security(recipient, amount, "voice")
@@ -927,4 +934,3 @@ if __name__ == "__main__":
         print(f"   ❌ Test Error: {e}")
     
     print(f"\n✅ Enhanced PayMesh backend ready with SMS verification and confirmation!")
-

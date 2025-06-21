@@ -1,5 +1,3 @@
-# paymesh_app.py - Complete PayMesh App with SMS Template Verification and Payment Confirmation SMS
-
 from __future__ import annotations
 
 import os
@@ -46,6 +44,9 @@ except ImportError:
     GTTS_AVAILABLE = False
     print("⚠️ gtts not available. Install with: pip install gtts")
 
+# VOICE AMOUNT EXTRACTION FIX
+from word2number import w2n
+
 # BACKEND INTEGRATION
 from backend_integration import backend
 
@@ -63,6 +64,23 @@ LOGO_FILE = "assets/logo.png"
 # --------------------------------------------------------------------------- #
 # HELPER FUNCTIONS - COMPLETELY FIXED WITH SMS SUPPORT
 # --------------------------------------------------------------------------- #
+
+def extract_amount_from_text(text):
+    """Extract amount from voice text using regex and word2number"""
+    patterns = [
+        r"Rs\s?(\d+)",
+        r"(\d+)\s?rupees?",
+        r"(\d+)\s?रुप(?:ये|या)?",
+        r"(\d+)"
+    ]
+    for pattern in patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return float(match.group(1))
+    try:
+        return w2n.word_to_num(text)
+    except Exception:
+        return None
 
 def play_beep() -> None:
     if Path(BEEP_FILE).is_file():
@@ -89,7 +107,7 @@ def show_detailed_popup(title: str, message: str, details: str = "") -> None:
     popup = Popup(
         title=title,
         content=Label(
-            text=full_message, 
+            text=full_message,
             color=(1, 1, 1, 1),
             text_size=(450, None),
             halign="left"
@@ -146,21 +164,21 @@ def safe_format_number(value, default=0.0):
 class StartScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        
+
         with self.canvas.before:
             Color(*Window.clearcolor)
             self.rect = Rectangle(size=self.size, pos=self.pos)
             self.bind(size=self._update_rect, pos=self._update_rect)
 
         layout = BoxLayout(orientation="vertical", padding=50, spacing=20)
-        
+
         logo = logo_widget()
         layout.add_widget(logo)
-        
+
         # Backend status indicator with SMS verification info
         self.status_label = Label(text="Initializing SMS Security...", font_size=16, color=(1, 1, 1, 1))
         layout.add_widget(self.status_label)
-        
+
         layout.add_widget(
             Label(text="Secure Offline Payments with SMS Phishing Verification", font_size=22, color=(1, 1, 1, 1))
         )
@@ -190,7 +208,7 @@ class StartScreen(Screen):
         Animation(opacity=1, duration=1).start(start_btn)
 
         self.add_widget(layout)
-        
+
         # Check backend status on startup
         Clock.schedule_once(self.check_backend_status, 0.5)
 
@@ -203,7 +221,7 @@ class StartScreen(Screen):
                 status = backend.get_system_status()
                 backend_available = status.get("backend_available", False)
                 capabilities = status.get("capabilities", {})
-                
+
                 if backend_available and capabilities.get("enhanced_security_pipeline", False):
                     status_text = "🟢 4-Layer ML Security + SMS Verification Ready"
                 elif backend_available and capabilities.get("ml_security_pipeline", False):
@@ -212,11 +230,11 @@ class StartScreen(Screen):
                     status_text = "🟡 Basic Backend Ready"
                 else:
                     status_text = "🔴 Offline Mode"
-                
+
                 Clock.schedule_once(lambda *_: setattr(self.status_label, "text", status_text))
             except Exception as e:
                 Clock.schedule_once(lambda *_: setattr(self.status_label, "text", "🔴 Backend Error"))
-        
+
         threading.Thread(target=status_check, daemon=True).start()
 
     def show_system_status(self, *_):
@@ -226,13 +244,13 @@ class StartScreen(Screen):
                 backend_available = status.get("backend_available", False)
                 capabilities = status.get("capabilities", {})
                 current_user = safe_format_value(status.get('current_user', 'Not logged in'))
-                
+
                 # Enhanced status with SMS verification
                 sms_verification_status = "✅ Available" if capabilities.get("sms_phishing_verification", False) else "❌ Unavailable"
                 enhanced_security_status = "✅ Active" if capabilities.get("enhanced_security_pipeline", False) else "❌ Inactive"
-                
+
                 status_details = f"""PayMesh Enhanced Security System:
-                
+
 Backend: {'✅ Available' if backend_available else '❌ Offline'}
 
 4-Layer ML Security Pipeline:
@@ -259,7 +277,7 @@ SMS Security Features:
 • 4 SMS templates verified per transaction
 • Real-time phishing pattern detection
 • Payment confirmation SMS notifications"""
-                
+
                 Clock.schedule_once(
                     lambda *_: show_detailed_popup("Enhanced System Status", "PayMesh Security Overview", status_details)
                 )
@@ -268,7 +286,7 @@ SMS Security Features:
                 Clock.schedule_once(
                     lambda *_: show_simple_popup("Status Error", error_msg)
                 )
-        
+
         threading.Thread(target=get_status, daemon=True).start()
 
     def go_to_login(self, *_):
@@ -278,14 +296,14 @@ SMS Security Features:
 class LoginScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        
+
         with self.canvas.before:
             Color(*Window.clearcolor)
             self.rect = Rectangle(size=self.size, pos=self.pos)
             self.bind(size=self._update_rect, pos=self._update_rect)
 
         layout = BoxLayout(orientation="vertical", padding=30, spacing=20)
-        
+
         logo = logo_widget((1, 0.7))
         layout.add_widget(logo)
         layout.add_widget(Label(text="Login Account", font_size=20, color=(1, 1, 1, 1)))
@@ -298,7 +316,7 @@ class LoginScreen(Screen):
             background_color=(1, 1, 1, 0.4),
             foreground_color=(0, 0, 0, 1),
         )
-        
+
         self.password = TextInput(
             hint_text="Password",
             multiline=False,
@@ -308,7 +326,7 @@ class LoginScreen(Screen):
             background_color=(1, 1, 1, 0.4),
             foreground_color=(0, 0, 0, 1),
         )
-        
+
         layout.add_widget(self.username)
         layout.add_widget(self.password)
 
@@ -345,13 +363,13 @@ class LoginScreen(Screen):
         """Enhanced authentication with real backend"""
         username = self.username.text.strip()
         password = self.password.text.strip()
-        
+
         if not username or not password:
             show_simple_popup("Error", "Please enter both username and password")
             return
-        
+
         self.login_status.text = "🔄 Authenticating..."
-        
+
         def auth_process():
             try:
                 result = backend.authenticate_user(username, password)
@@ -359,12 +377,12 @@ class LoginScreen(Screen):
             except Exception as e:
                 error_result = {"success": False, "message": f"Authentication failed: {str(e)}"}
                 Clock.schedule_once(lambda *_: self._handle_auth_result(error_result))
-        
+
         threading.Thread(target=auth_process, daemon=True).start()
-    
+
     def _handle_auth_result(self, result):
         self.login_status.text = ""
-        
+
         success = result.get("success", False)
         if success:
             show_simple_popup("Success", f"Welcome back, {self.username.text}!")
@@ -374,7 +392,7 @@ class LoginScreen(Screen):
             if result.get("locked", False):
                 wait_time = safe_format_number(result.get('wait_time', 60))
                 error_details = f"Account locked. Wait {wait_time} seconds."
-            
+
             message = safe_format_value(result.get("message", "Login failed"))
             show_detailed_popup("Login Failed", message, error_details)
 
@@ -384,14 +402,14 @@ class LoginScreen(Screen):
 class SignupScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        
+
         with self.canvas.before:
             Color(*Window.clearcolor)
             self.rect = Rectangle(size=self.size, pos=self.pos)
             self.bind(size=self._update_rect, pos=self._update_rect)
 
         layout = BoxLayout(orientation="vertical", padding=30, spacing=20)
-        
+
         logo = logo_widget((1, 0.5))
         layout.add_widget(logo)
         layout.add_widget(Label(text="Register Account", font_size=20, color=(1, 1, 1, 1)))
@@ -404,7 +422,7 @@ class SignupScreen(Screen):
             background_color=(1, 1, 1, 0.4),
             foreground_color=(0, 0, 0, 1),
         )
-        
+
         self.password = TextInput(
             hint_text="Password (min 6 chars)",
             multiline=False,
@@ -414,7 +432,7 @@ class SignupScreen(Screen):
             background_color=(1, 1, 1, 0.4),
             foreground_color=(0, 0, 0, 1),
         )
-        
+
         self.phone = TextInput(
             hint_text="Phone Number (+919876543210)",
             multiline=False,
@@ -423,7 +441,7 @@ class SignupScreen(Screen):
             background_color=(1, 1, 1, 0.4),
             foreground_color=(0, 0, 0, 1),
         )
-        
+
         layout.add_widget(self.username)
         layout.add_widget(self.password)
         layout.add_widget(self.phone)
@@ -462,13 +480,13 @@ class SignupScreen(Screen):
         username = self.username.text.strip()
         password = self.password.text.strip()
         phone = self.phone.text.strip()
-        
+
         if not all([username, password, phone]):
             show_simple_popup("Error", "Please fill all fields")
             return
-        
+
         self.signup_status.text = "🔄 Creating account..."
-        
+
         def register_process():
             try:
                 result = backend.register_user(username, password, phone)
@@ -476,12 +494,12 @@ class SignupScreen(Screen):
             except Exception as e:
                 error_result = {"success": False, "message": f"Registration failed: {str(e)}"}
                 Clock.schedule_once(lambda *_: self._handle_register_result(error_result))
-        
+
         threading.Thread(target=register_process, daemon=True).start()
-    
+
     def _handle_register_result(self, result):
         self.signup_status.text = ""
-        
+
         success = result.get("success", False)
         if success:
             show_simple_popup("Success", "Registration successful! You can now log in.")
@@ -496,7 +514,7 @@ class SignupScreen(Screen):
 class OTPScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        
+
         with self.canvas.before:
             Color(*Window.clearcolor)
             self.rect = Rectangle(size=self.size, pos=self.pos)
@@ -504,7 +522,7 @@ class OTPScreen(Screen):
 
         layout = BoxLayout(orientation="vertical", padding=30, spacing=20)
         layout.add_widget(logo_widget((1, 0.7)))
-        
+
         layout.add_widget(
             Label(
                 text="Security Check-up\nOTP Verification (Demo Mode)",
@@ -535,8 +553,8 @@ class OTPScreen(Screen):
         layout.add_widget(confirm_btn)
 
         resend_btn = Button(
-            text="Skip OTP (Demo)", 
-            background_color=(0, 0, 0, 0), 
+            text="Skip OTP (Demo)",
+            background_color=(0, 0, 0, 0),
             color=(0, 0, 0, 1)
         )
         resend_btn.bind(on_press=lambda *_: setattr(self.manager, "current", "send"))
@@ -556,7 +574,7 @@ class OTPScreen(Screen):
 class SendScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        
+
         with self.canvas.before:
             Color(*Window.clearcolor)
             self.rect = Rectangle(size=self.size, pos=self.pos)
@@ -574,7 +592,7 @@ class SendScreen(Screen):
             color=(1, 1, 1, 1),
         )
         layout.add_widget(self.status_label)
-        
+
         # User info display
         self.user_info = Label(
             text="Loading user info...",
@@ -601,10 +619,10 @@ class SendScreen(Screen):
         )
         send_btn.bind(on_press=self.go_to_disability)
         layout.add_widget(send_btn)
-        
+
         # Enhanced action buttons
         buttons_layout = BoxLayout(orientation="horizontal", size_hint=(1, 0.15), spacing=10)
-        
+
         graph_btn = Button(
             text="📊 Security Graph",
             background_color=(1, 0.5, 0, 1),
@@ -612,7 +630,7 @@ class SendScreen(Screen):
         )
         graph_btn.bind(on_press=self.show_fraud_graph)
         buttons_layout.add_widget(graph_btn)
-        
+
         sms_stats_btn = Button(
             text="📱 SMS Stats",
             background_color=(0.8, 0.2, 0.8, 1),
@@ -620,7 +638,7 @@ class SendScreen(Screen):
         )
         sms_stats_btn.bind(on_press=self.show_sms_verification_stats)
         buttons_layout.add_widget(sms_stats_btn)
-        
+
         sync_btn = Button(
             text="🔄 Sync",
             background_color=(0.5, 0.5, 1, 1),
@@ -628,7 +646,7 @@ class SendScreen(Screen):
         )
         sync_btn.bind(on_press=self.sync_transactions)
         buttons_layout.add_widget(sync_btn)
-        
+
         analytics_btn = Button(
             text="📈 Analytics",
             background_color=(0.5, 1, 0.5, 1),
@@ -636,18 +654,18 @@ class SendScreen(Screen):
         )
         analytics_btn.bind(on_press=self.show_analytics)
         buttons_layout.add_widget(analytics_btn)
-        
+
         layout.add_widget(buttons_layout)
 
         self.add_widget(layout)
-        
+
         # Update status every 5 seconds
         Clock.schedule_interval(self.update_status, 5)
         self.update_status()
 
     def _update_rect(self, *_):
         self.rect.pos, self.rect.size = self.pos, self.size
-    
+
     def update_status(self, *_):
         """Enhanced status updates with SMS verification info"""
         def check_status():
@@ -655,26 +673,26 @@ class SendScreen(Screen):
                 # Get connectivity status
                 status = backend.check_connection_status()
                 user_info = backend.get_user_info()
-                
+
                 # Channel status
                 channels = []
                 if status.get("online", False): channels.append("🌐 Online")
                 if status.get("bluetooth", False): channels.append("🔵 Bluetooth")
                 if status.get("sms", False): channels.append("📱 SMS")
                 if status.get("local", False): channels.append("💾 Local")
-                
+
                 channels_text = " | ".join(channels) if channels else "No channels available"
                 status_text = f"[b]Channels: [color=00E5D4]{channels_text}[/color][/b]"
-                
+
                 # User info
                 username = safe_format_value(user_info.get('username', 'guest'))
                 txn_count = safe_format_number(user_info.get('transaction_count', 0))
                 user_text = f"👤 {username} | 📊 {int(txn_count)} transactions"
-                
+
                 # Enhanced security info with SMS verification
                 details = status.get("details", {})
                 modules_status = details.get("modules_status", {}) if isinstance(details, dict) else {}
-                
+
                 security_features = []
                 if modules_status.get("phishing_detector", False):
                     security_features.append("SVM Phishing")
@@ -684,22 +702,22 @@ class SendScreen(Screen):
                     security_features.append("SMS Verification")
                 if modules_status.get("trust_score", False):
                     security_features.append("Trust Scoring")
-                
+
                 if security_features:
                     security_text = f"🛡️ ML Security: {' + '.join(security_features)}\n🔍 4-Layer Protection: Phishing → Fraud → Trust → SMS"
                 else:
                     security_text = "⚠️ ML Security: Limited | Basic protection only"
-                
+
                 Clock.schedule_once(lambda *_: setattr(self.status_label, "text", status_text))
                 Clock.schedule_once(lambda *_: setattr(self.user_info, "text", user_text))
                 Clock.schedule_once(lambda *_: setattr(self.security_info, "text", security_text))
-                
+
             except Exception as e:
                 error_status = f"[b]Status: [color=FF6B6B]Error checking connectivity[/color][/b]"
                 Clock.schedule_once(lambda *_: setattr(self.status_label, "text", error_status))
-        
+
         threading.Thread(target=check_status, daemon=True).start()
-    
+
     def show_fraud_graph(self, *_):
         """Generate and show fraud graph"""
         def generate_graph():
@@ -709,15 +727,15 @@ class SendScreen(Screen):
             except Exception as e:
                 error_msg = f"Graph generation error: {str(e)}"
                 Clock.schedule_once(lambda *_: show_simple_popup("Graph Error", error_msg))
-        
+
         threading.Thread(target=generate_graph, daemon=True).start()
-    
+
     def show_sms_verification_stats(self, *_):
         """NEW: Show SMS verification statistics"""
         def get_sms_stats():
             try:
                 sms_stats = backend.get_sms_verification_statistics()
-                
+
                 if "error" in sms_stats:
                     details = f"SMS Verification Error: {sms_stats['error']}"
                 else:
@@ -727,7 +745,7 @@ class SendScreen(Screen):
                     approval_rate = sms_stats.get('approval_rate', 0)
                     model_status = sms_stats.get('model_status', 'unknown')
                     avg_risk = sms_stats.get('average_risk_score', 0)
-                    
+
                     details = f"""SMS Phishing Verification Statistics:
 
 Model Status: {model_status.upper()}
@@ -749,16 +767,16 @@ SMS Security Features:
 • Real-time SVM classification
 • Automatic phishing detection
 • Payment confirmation notifications"""
-                
+
                 Clock.schedule_once(
                     lambda *_: show_detailed_popup("SMS Verification Stats", "Security Performance", details)
                 )
             except Exception as e:
                 error_msg = f"SMS stats error: {str(e)}"
                 Clock.schedule_once(lambda *_: show_simple_popup("SMS Stats Error", error_msg))
-        
+
         threading.Thread(target=get_sms_stats, daemon=True).start()
-    
+
     def sync_transactions(self, *_):
         """Sync transactions with server"""
         def sync_process():
@@ -769,15 +787,15 @@ SMS Security Features:
             except Exception as e:
                 error_msg = f"Sync error: {str(e)}"
                 Clock.schedule_once(lambda *_: show_simple_popup("Sync Error", error_msg))
-        
+
         threading.Thread(target=sync_process, daemon=True).start()
-    
+
     def show_analytics(self, *_):
         """Show enhanced security analytics with SMS verification"""
         def get_analytics():
             try:
                 analytics = backend.get_security_analytics()
-                
+
                 if "error" in analytics:
                     details = f"Analytics Error: {analytics['error']}"
                 else:
@@ -785,7 +803,7 @@ SMS Security Features:
                     channel_status = analytics.get("channel_capabilities", {})
                     security_layers = analytics.get("security_layers", {})
                     timestamp = safe_format_value(analytics.get('timestamp', 'Unknown'))
-                    
+
                     details = f"""Enhanced Security Analytics:
 
 4-Layer ML Security Pipeline:
@@ -807,14 +825,14 @@ Enhanced Security Features:
 • Payment confirmation SMS
 
 Timestamp: {timestamp}"""
-                
+
                 Clock.schedule_once(
                     lambda *_: show_detailed_popup("Enhanced Analytics", "4-Layer Security Status", details)
                 )
             except Exception as e:
                 error_msg = f"Analytics error: {str(e)}"
                 Clock.schedule_once(lambda *_: show_simple_popup("Analytics Error", error_msg))
-        
+
         threading.Thread(target=get_analytics, daemon=True).start()
 
     def go_to_disability(self, *_):
@@ -824,7 +842,7 @@ Timestamp: {timestamp}"""
 class DisabilityScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        
+
         with self.canvas.before:
             Color(*Window.clearcolor)
             self.rect = Rectangle(size=self.size, pos=self.pos)
@@ -832,7 +850,7 @@ class DisabilityScreen(Screen):
 
         layout = BoxLayout(orientation="vertical", spacing=30, padding=40)
         layout.add_widget(logo_widget((1, 0.5)))
-        
+
         layout.add_widget(
             Label(
                 text="Choose Transaction Method\nWith SMS Security Verification",
@@ -907,7 +925,7 @@ class VoiceScreen(Screen):
         )
         self.spinner_response.bind(text=lambda _, val: setattr(self, "response_language", val))
         self.box.add_widget(self.spinner_response)
-        
+
         # Recipient input
         self.recipient_input = TextInput(
             hint_text="Recipient Phone Number",
@@ -929,7 +947,7 @@ class VoiceScreen(Screen):
         self.security_status = Label(
             text="", font_size=12, color=(1, 0.5, 0, 1), size_hint_y=None, height=50
         )
-        
+
         self.box.add_widget(self.status)
         self.box.add_widget(self.result)
         self.box.add_widget(self.security_status)
@@ -948,7 +966,7 @@ class VoiceScreen(Screen):
 
         # Navigation buttons
         nav_layout = BoxLayout(orientation="horizontal", size_hint_y=None, height=48, spacing=10)
-        
+
         next_button = Button(
             text="Next",
             background_color=(1, 0.5, 0, 1),
@@ -956,7 +974,7 @@ class VoiceScreen(Screen):
         )
         next_button.bind(on_press=lambda *_: setattr(self.manager, "current", "continue"))
         nav_layout.add_widget(next_button)
-        
+
         back_button = Button(
             text="Back",
             background_color=(0.5, 0.5, 0.5, 1),
@@ -964,7 +982,7 @@ class VoiceScreen(Screen):
         )
         back_button.bind(on_press=lambda *_: setattr(self.manager, "current", "disability"))
         nav_layout.add_widget(back_button)
-        
+
         self.box.add_widget(nav_layout)
 
     def _update_rect(self, *_):
@@ -975,7 +993,7 @@ class VoiceScreen(Screen):
         if not recipient:
             show_simple_popup("Error", "Please enter recipient phone number first")
             return
-        
+
         self.current_recipient = recipient
         self.update_status("🎤 Recording...")
         self.record_button.disabled = True
@@ -1012,15 +1030,15 @@ class VoiceScreen(Screen):
 
             safe_remove(tmp_wav)
             Clock.schedule_once(lambda *_: self._post_recognition(text))
-            
+
         except Exception as e:
             Clock.schedule_once(lambda *_: self._post_recognition(f"Recording error: {str(e)}"))
 
     def _post_recognition(self, text: str):
-        """Process voice transaction with SMS verification progress"""
+        """FIXED: Process voice transaction with SMS verification progress and amount extraction"""
         self.result.text = f"You said: {text}"
         self.security_status.text = "🔄 Step 1/4: Running ML fraud detection..."
-        
+
         def process_voice():
             try:
                 # Update progress through security layers
@@ -1031,11 +1049,19 @@ class VoiceScreen(Screen):
                 time.sleep(0.5)
                 Clock.schedule_once(lambda *_: setattr(self.security_status, "text", "🔄 Step 4/4: Verifying SMS with SVM model..."))
                 time.sleep(0.5)
-                
-                # Process with enhanced security
-                result = backend.process_transaction_with_enhanced_security(self.current_recipient, 0, "voice")
+
+                # FIX: Extract amount from recognized text
+                amount = extract_amount_from_text(text)
+                if not amount or amount <= 0:
+                    Clock.schedule_once(lambda *_: show_simple_popup("Error", "Could not recognize a valid amount from your voice input."))
+                    Clock.schedule_once(lambda *_: self.reset_status())
+                    return
+
+                # Process with enhanced security using extracted amount
+                result = backend.process_transaction_with_enhanced_security(self.current_recipient, amount, "voice")
                 result["voice_text"] = text
-                
+                result["extracted_amount"] = amount
+
                 Clock.schedule_once(lambda *_: self._handle_transaction_result(result))
             except Exception as e:
                 error_result = {
@@ -1044,17 +1070,17 @@ class VoiceScreen(Screen):
                     "reason": "System error"
                 }
                 Clock.schedule_once(lambda *_: self._handle_transaction_result(error_result))
-        
+
         threading.Thread(target=process_voice, daemon=True).start()
-    
+
     def _handle_transaction_result(self, result):
         """ENHANCED: Handle transaction result with SMS verification and payment confirmation SMS info"""
         try:
             success = result.get("success", False)
-            
+
             # Get SMS verification details
             sms_verification = result.get("sms_verification", {})
-            
+
             # SMS payment confirmation info
             sms_notification = result.get("sms_notification", None)
             sms_info = ""
@@ -1062,7 +1088,7 @@ class VoiceScreen(Screen):
                 sms_info = "\n\n📱 Payment confirmation SMS has been sent to your registered phone number."
             elif sms_notification is False:
                 sms_info = "\n\n⚠️ Payment confirmation SMS could not be sent."
-            
+
             if success:
                 # Success case with SMS verification details
                 phishing_conf = safe_format_number(result.get('phishing_confidence', 0))
@@ -1071,16 +1097,16 @@ class VoiceScreen(Screen):
                 channel_used = safe_format_value(result.get('channel_used', 'Unknown'))
                 txn_id = safe_format_value(result.get('txn_id', 'N/A'))
                 extracted_amount = safe_format_number(result.get('extracted_amount', 0))
-                
+
                 # SMS verification details
                 sms_risk_score = safe_format_number(sms_verification.get('risk_score', 0))
                 sms_risk_level = safe_format_value(sms_verification.get('phishing_risk', 'LOW'))
                 templates_checked = sms_verification.get('sms_templates_checked', [])
                 verification_details = sms_verification.get('verification_details', {})
-                
+
                 # Build SMS template verification display
                 sms_template_analysis = self._format_sms_verification_display(verification_details)
-                
+
                 security_details = f"""🛡️ 4-Layer Security Analysis:
 • Phishing Risk: {phishing_conf:.2f}/1.0
 • Fraud Risk: {fraud_score:.2f}/1.0
@@ -1099,31 +1125,31 @@ class VoiceScreen(Screen):
 
 ✅ All 4 security layers passed
 🚀 Transaction processed with SMS verification"""
-                
+
                 message = safe_format_value(result.get("message", "Transaction successful"))
                 show_detailed_popup("🎉 Voice Transaction Successful", message, security_details + sms_info)
-                
+
                 # Enhanced TTS response
                 responses = {
                     "English": f"Payment approved. {int(extracted_amount)} rupees sent. All SMS templates verified safe by SVM model.",
                     "Tamil": f"கட்டணம் அங்கீகரிக்கப்பட்டது. {int(extracted_amount)} ரூபாய் அனுப்பப்பட்டது. SMS பாதுகாப்பானது.",
                     "Hindi": f"भुगतान स्वीकृत। {int(extracted_amount)} रुपये भेजे गए। SMS सत्यापित।",
                 }
-                
+
             else:
                 # Failed case with SMS verification details
                 reason = safe_format_value(result.get('reason', 'Unknown error'))
                 blocked_reason = safe_format_value(result.get('blocked_reason', 'Security system'))
                 voice_text = safe_format_value(result.get('voice_text', 'N/A'))
-                
+
                 # SMS verification failure details
                 sms_blocked_reason = safe_format_value(sms_verification.get('blocked_reason', 'N/A'))
                 sms_risk_score = safe_format_number(sms_verification.get('risk_score', 0))
                 verification_details = sms_verification.get('verification_details', {})
-                
+
                 # Build failed SMS verification display
                 sms_template_analysis = self._format_sms_verification_display(verification_details, failed=True)
-                
+
                 security_details = f"""🚫 4-Layer Security Analysis:
 • Reason: {reason}
 • Blocked By: {blocked_reason}
@@ -1138,24 +1164,24 @@ class VoiceScreen(Screen):
 
 ❌ Transaction blocked by enhanced security
 🛡️ SMS verification protected your payment"""
-                
+
                 message = safe_format_value(result.get("message", "Transaction blocked"))
                 show_detailed_popup("🚫 Voice Transaction Blocked", message, security_details + sms_info)
-                
+
                 responses = {
                     "English": "Payment blocked by SMS security verification. Your funds are protected.",
                     "Tamil": "SMS பாதுகாப்பு சரிபார்ப்பால் கட்டணம் தடுக்கப்பட்டது. உங்கள் பணம் பாதுகாக்கப்பட்டுள்ளது.",
                     "Hindi": "SMS सुरक्षा सत्यापन द्वारा भुगतान रोक दिया गया। आपका पैसा सुरक्षित है।",
                 }
-            
+
             # Get response text and speak it
             response_text = responses.get(self.response_language, responses["English"])
             threading.Thread(target=self._speak, args=(response_text,), daemon=True).start()
-            
+
         except Exception as e:
             error_msg = f"Error displaying result: {str(e)}"
             show_simple_popup("Display Error", error_msg)
-        
+
         # Reset UI status
         self.security_status.text = ""
         self.update_status("Ready for next transaction")
@@ -1165,32 +1191,32 @@ class VoiceScreen(Screen):
         """Format SMS template verification for user display"""
         if not verification_details:
             return "No SMS verification data available"
-        
+
         display_lines = []
-        
+
         for template_type, details in verification_details.items():
             template_name = template_type.replace('_', ' ').title()
             phishing_score = safe_format_number(details.get('phishing_score', 0))
             is_phishing = details.get('is_phishing', False)
-            
+
             # Status icon
             status_icon = "🚨" if is_phishing else "✅"
             status_text = "FLAGGED" if is_phishing else "SAFE"
-            
+
             display_lines.append(f"  {status_icon} {template_name}: {status_text} ({phishing_score:.3f})")
-            
+
             # Show SMS content for failed cases
             if failed and is_phishing:
                 sms_content = details.get('sms_content', '')
                 if sms_content:
                     display_lines.append(f"    ⚠️ Content: {sms_content[:50]}...")
-        
+
         return "\n".join(display_lines) if display_lines else "No templates analyzed"
 
     def _speak(self, text: str):
         """Enhanced TTS with multiple fallback options"""
         print(f"🔊 Speaking: {text}")
-        
+
         # Method 1: Try pyttsx3 (offline, most reliable)
         if PYTTSX3_AVAILABLE:
             try:
@@ -1198,7 +1224,7 @@ class VoiceScreen(Screen):
                 return
             except Exception as e:
                 print(f"pyttsx3 failed: {e}")
-        
+
         # Method 2: Try gTTS + playsound (online)
         if GTTS_AVAILABLE:
             try:
@@ -1206,50 +1232,50 @@ class VoiceScreen(Screen):
                 return
             except Exception as e:
                 print(f"gTTS failed: {e}")
-        
+
         # Method 3: System TTS (Windows)
         try:
             self._speak_system_windows(text)
             return
         except Exception as e:
             print(f"System TTS failed: {e}")
-        
+
         print("❌ All TTS methods failed")
-    
+
     def _speak_pyttsx3(self, text: str):
         """Method 1: Offline TTS using pyttsx3"""
         engine = pyttsx3.init()
         engine.setProperty('rate', 150)
         engine.setProperty('volume', 0.8)
-        
+
         voices = engine.getProperty('voices')
         lang_code = TTS_CODES.get(self.response_language, 'en')
-        
+
         for voice in voices:
             if lang_code in voice.id.lower():
                 engine.setProperty('voice', voice.id)
                 break
-        
+
         engine.say(text)
         engine.runAndWait()
         engine.stop()
         print("✅ pyttsx3 TTS completed")
-    
+
     def _speak_gtts(self, text: str):
         """Method 2: Online TTS using gTTS + playsound"""
         tts = gTTS(text=text, lang=TTS_CODES[self.response_language], slow=False)
         tfile = Path(f"tts_{uuid.uuid4().hex}.mp3")
-        
+
         tts.save(str(tfile))
         playsound(str(tfile))
         safe_remove(tfile)
         print("✅ gTTS TTS completed")
-    
+
     def _speak_system_windows(self, text: str):
         """Method 3: Windows built-in TTS"""
         if platform.system() != "Windows":
             raise Exception("Not Windows system")
-        
+
         import win32com.client
         speaker = win32com.client.Dispatch("SAPI.SpVoice")
         speaker.Speak(text)
@@ -1265,7 +1291,7 @@ class VoiceScreen(Screen):
 class ManualScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        
+
         with self.canvas.before:
             Color(*Window.clearcolor)
             self.rect = Rectangle(size=self.size, pos=self.pos)
@@ -1274,7 +1300,7 @@ class ManualScreen(Screen):
         layout = BoxLayout(orientation="vertical", spacing=20, padding=40)
         layout.add_widget(logo_widget((1, 0.3)))
         layout.add_widget(Label(text="Manual Payment with 4-Layer ML Security", font_size=20, color=(1, 1, 1, 1)))
-        
+
         # Recipient input
         self.recipient_input = TextInput(
             hint_text="Recipient Phone Number",
@@ -1326,7 +1352,7 @@ class ManualScreen(Screen):
 
         # Navigation buttons
         nav_layout = BoxLayout(orientation="horizontal", size_hint=(1, 0.12), spacing=10)
-        
+
         next_btn = Button(
             text="Next",
             background_color=(1, 0.5, 0, 1),
@@ -1334,7 +1360,7 @@ class ManualScreen(Screen):
         )
         next_btn.bind(on_press=lambda *_: setattr(self.manager, "current", "continue"))
         nav_layout.add_widget(next_btn)
-        
+
         back_btn = Button(
             text="Back",
             background_color=(0.5, 0.5, 0.5, 1),
@@ -1342,7 +1368,7 @@ class ManualScreen(Screen):
         )
         back_btn.bind(on_press=lambda *_: setattr(self.manager, "current", "disability"))
         nav_layout.add_widget(back_btn)
-        
+
         layout.add_widget(nav_layout)
 
         self.add_widget(layout)
@@ -1354,30 +1380,30 @@ class ManualScreen(Screen):
         """NEW: Preview SMS templates that will be verified"""
         recipient = self.recipient_input.text.strip()
         amount_text = self.amount_input.text.strip()
-        
+
         if not recipient or not amount_text:
             show_simple_popup("Preview Error", "Please enter recipient and amount first")
             return
-        
+
         try:
             amount = float(amount_text)
             txn_id = f"PREVIEW_{int(time.time())}"
-            
+
             templates = {
                 "Payment Notification": f"PayMesh: You are sending ₹{amount} to {recipient}. TXN: {txn_id}. Confirm to proceed.",
-                "Security Alert": f"PayMesh Security: ₹{amount} transfer to {recipient} initiated. TXN: {txn_id}. Contact support if unauthorized.", 
+                "Security Alert": f"PayMesh Security: ₹{amount} transfer to {recipient} initiated. TXN: {txn_id}. Contact support if unauthorized.",
                 "Confirmation Request": f"PayMesh: Confirm payment - Send ₹{amount} to {recipient}? Reply YES. TXN: {txn_id}",
                 "Success Notification": f"PayMesh: Payment successful - ₹{amount} sent to {recipient}. TXN: {txn_id}. Secure transaction completed."
             }
-            
+
             template_display = "SMS Templates for SVM Verification:\n\n"
             for i, (template_type, content) in enumerate(templates.items(), 1):
                 template_display += f"{i}. {template_type}:\n   {content}\n\n"
-            
+
             template_display += "These 4 templates will be checked by your trained SVM model for phishing patterns before payment approval."
-            
+
             show_detailed_popup("📱 SMS Templates Preview", "Pre-payment Security Check", template_display)
-            
+
         except ValueError:
             show_simple_popup("Preview Error", "Please enter a valid amount")
 
@@ -1385,11 +1411,11 @@ class ManualScreen(Screen):
         """ENHANCED: Process transaction with SMS verification progress display"""
         recipient = self.recipient_input.text.strip()
         amount_text = self.amount_input.text.strip()
-        
+
         if not recipient or not amount_text:
             show_simple_popup("Error", "Please fill both recipient and amount fields")
             return
-        
+
         try:
             amount = float(amount_text)
             if amount <= 0:
@@ -1398,10 +1424,10 @@ class ManualScreen(Screen):
         except ValueError:
             show_simple_popup("Error", "Invalid amount entered")
             return
-        
+
         # Enhanced progress tracking
         self.security_status.text = "🔄 Step 1/4: Running ML fraud detection..."
-        
+
         def process_transaction():
             try:
                 # Update status during processing with SMS verification steps
@@ -1412,7 +1438,7 @@ class ManualScreen(Screen):
                 time.sleep(0.5)
                 Clock.schedule_once(lambda *_: setattr(self.security_status, "text", "🔄 Step 4/4: Verifying each SMS with SVM model..."))
                 time.sleep(1.0)  # Extra time for SMS verification
-                
+
                 # Process with enhanced security
                 result = backend.process_transaction_with_enhanced_security(recipient, amount, "manual")
                 Clock.schedule_once(lambda *_: self._handle_transaction_result(result))
@@ -1423,18 +1449,18 @@ class ManualScreen(Screen):
                     "reason": "System error"
                 }
                 Clock.schedule_once(lambda *_: self._handle_transaction_result(error_result))
-        
+
         threading.Thread(target=process_transaction, daemon=True).start()
-    
+
     def _handle_transaction_result(self, result):
         """ENHANCED: Handle transaction result with complete SMS verification display and payment confirmation SMS info"""
         try:
             self.security_status.text = ""
             success = result.get("success", False)
-            
+
             # Get SMS verification details
             sms_verification = result.get("sms_verification", {})
-            
+
             # SMS payment confirmation info
             sms_notification = result.get("sms_notification", None)
             sms_info = ""
@@ -1442,7 +1468,7 @@ class ManualScreen(Screen):
                 sms_info = "\n\n📱 Payment confirmation SMS has been sent to your registered phone number."
             elif sms_notification is False:
                 sms_info = "\n\n⚠️ Payment confirmation SMS could not be sent."
-            
+
             if success:
                 # Success with complete SMS verification analysis
                 phishing_conf = safe_format_number(result.get('phishing_confidence', 0))
@@ -1452,17 +1478,17 @@ class ManualScreen(Screen):
                 txn_id = safe_format_value(result.get('txn_id', 'N/A'))
                 processing_time = safe_format_number(result.get('processing_time_ms', 0))
                 security_layers = result.get('security_layers', [])
-                
+
                 # SMS verification details
                 sms_risk_score = safe_format_number(sms_verification.get('risk_score', 0))
                 sms_risk_level = safe_format_value(sms_verification.get('phishing_risk', 'LOW'))
                 templates_checked = sms_verification.get('sms_templates_checked', [])
                 verification_details = sms_verification.get('verification_details', {})
-                
+
                 # Build comprehensive SMS verification display
                 sms_template_analysis = self._format_sms_verification_display(verification_details)
                 channel_details = self._format_channel_details(result)
-                
+
                 security_details = f"""🛡️ Complete 4-Layer Security Analysis:
 • Layer 1 - Phishing Risk: {phishing_conf:.2f}/1.0
 • Layer 2 - Fraud Risk: {fraud_score:.2f}/1.0
@@ -1487,14 +1513,14 @@ Processing Time: {int(processing_time)}ms
 
 ✅ All 4 security layers passed
 🚀 Transaction completed with SMS verification"""
-                
+
                 message = safe_format_value(result.get("message", "Transaction successful"))
                 show_detailed_popup("🎉 Secure Transaction Successful", message, security_details + sms_info)
-                
+
                 # Clear inputs after success
                 self.recipient_input.text = ""
                 self.amount_input.text = ""
-                
+
             else:
                 # Failure with detailed SMS verification analysis
                 reason = safe_format_value(result.get('reason', 'Unknown error'))
@@ -1502,15 +1528,15 @@ Processing Time: {int(processing_time)}ms
                 phishing_conf = safe_format_number(result.get('phishing_confidence', 0))
                 fraud_score = safe_format_number(result.get('fraud_score', 0))
                 trust_score = safe_format_number(result.get('trust_score', 0))
-                
+
                 # SMS verification failure details
                 sms_blocked_reason = safe_format_value(sms_verification.get('blocked_reason', 'N/A'))
                 sms_risk_score = safe_format_number(sms_verification.get('risk_score', 0))
                 verification_details = sms_verification.get('verification_details', {})
-                
+
                 # Build failed SMS verification display
                 sms_template_analysis = self._format_sms_verification_display(verification_details, failed=True)
-                
+
                 security_details = f"""🚫 4-Layer Security Analysis:
 • Reason: {reason}
 • Blocked By: {blocked_reason}
@@ -1528,49 +1554,49 @@ Processing Time: {int(processing_time)}ms
 ❌ Transaction blocked by enhanced security system
 🛡️ SMS verification protected your financial safety
 💪 Your funds are secure"""
-                
+
                 message = safe_format_value(result.get("message", "Transaction blocked"))
                 show_detailed_popup("🚫 Transaction Blocked by SMS Security", message, security_details + sms_info)
-                
+
         except Exception as e:
             error_msg = f"Error displaying result: {str(e)}"
             show_simple_popup("Display Error", error_msg)
-    
+
     def _format_sms_verification_display(self, verification_details, failed=False):
         """Format detailed SMS template verification for user display"""
         if not verification_details:
             return "No SMS verification data available"
-        
+
         display_lines = []
-        
+
         for template_type, details in verification_details.items():
             template_name = template_type.replace('_', ' ').title()
             phishing_score = safe_format_number(details.get('phishing_score', 0))
             is_phishing = details.get('is_phishing', False)
             svm_decision = safe_format_value(details.get('svm_decision', 'UNKNOWN'))
-            
+
             # Status icon and text
             status_icon = "🚨" if is_phishing else "✅"
             status_text = "FLAGGED" if is_phishing else "SAFE"
-            
+
             display_lines.append(f"  {status_icon} {template_name}: {status_text}")
             display_lines.append(f"    SVM Score: {phishing_score:.3f} | Decision: {svm_decision}")
-            
+
             # Show problematic SMS content for failed cases
             if failed and is_phishing:
                 sms_content = details.get('sms_content', '')
                 if sms_content:
                     display_lines.append(f"    ⚠️ Flagged Content: {sms_content[:60]}...")
-            
+
             display_lines.append("")  # Empty line for spacing
-        
+
         return "\n".join(display_lines) if display_lines else "No templates analyzed"
-    
+
     def _format_channel_details(self, result):
         """Format channel details for display"""
         try:
             channel_used = safe_format_value(result.get('channel_used', 'unknown'))
-            
+
             if channel_used == 'online':
                 return "• Used: Internet connection\n• Speed: High bandwidth"
             elif channel_used == 'bluetooth':
@@ -1599,7 +1625,7 @@ Processing Time: {int(processing_time)}ms
 class ContinueScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        
+
         with self.canvas.before:
             Color(*Window.clearcolor)
             self.rect = Rectangle(size=self.size, pos=self.pos)
@@ -1607,7 +1633,7 @@ class ContinueScreen(Screen):
 
         layout = BoxLayout(orientation="vertical", spacing=30, padding=40)
         layout.add_widget(logo_widget((1, 0.5)))
-        
+
         layout.add_widget(
             Label(
                 text="Secure Transaction Complete!\n4-Layer ML Security + SMS Verification\nMake another transaction?",
@@ -1655,7 +1681,7 @@ class ContinueScreen(Screen):
 class ExitScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        
+
         with self.canvas.before:
             Color(*Window.clearcolor)
             self.rect = Rectangle(size=self.size, pos=self.pos)
@@ -1663,11 +1689,11 @@ class ExitScreen(Screen):
 
         layout = BoxLayout(orientation="vertical", padding=50, spacing=20)
         layout.add_widget(logo_widget((1, 0.6)))
-        
+
         layout.add_widget(
             Label(
-                text="Thank you for using PayMesh!\nSecure Offline Payments with 4-Layer ML Security\nIncluding SMS Phishing Verification & Payment Confirmations", 
-                font_size=20, 
+                text="Thank you for using PayMesh!\nSecure Offline Payments with 4-Layer ML Security\nIncluding SMS Phishing Verification & Payment Confirmations",
+                font_size=20,
                 color=(1, 1, 1, 1),
                 halign="center"
             )
@@ -1703,7 +1729,7 @@ class ExitScreen(Screen):
 class PayMeshApp(App):
     def build(self):
         sm = ScreenManager()
-        
+
         # Add all screens
         sm.add_widget(StartScreen(name="start"))
         sm.add_widget(LoginScreen(name="login"))
@@ -1715,10 +1741,10 @@ class PayMeshApp(App):
         sm.add_widget(ManualScreen(name="manual"))
         sm.add_widget(ContinueScreen(name="continue"))
         sm.add_widget(ExitScreen(name="exit"))
-        
+
         sm.current = "start"
         return sm
-    
+
     def on_stop(self):
         """Cleanup when app closes"""
         try:
