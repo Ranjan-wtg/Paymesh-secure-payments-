@@ -1,9 +1,22 @@
-PayMesh is an advanced, security-first payment system designed to handle real-world connectivity challenges while maintaining the highest levels of fraud prevention and user trust. The system intelligently routes transactions through multiple channels and employs a four-layer ML security pipeline to protect users from sophisticated threats.
+PayMesh: Multi-Channel Secure Payment System
 
-Key Features:
-    Multi-Channel Routing: Automatic fallback between internet, Bluetooth LE, SMS, and local storage
-    AI Fraud Detection: PyTorch autoencoder for transaction anomaly detection
-    SMS Phishing Prevention: SVM-based classification of malicious payment notifications
-    Dynamic Trust Scoring: Real-time risk assessment based on user transaction history
-    Comprehensive Analytics: Interactive fraud visualization and security metrics dashboard
-    Production-Ready Architecture: Modular design with robust error handling and audit logging
+A production-ready, AI-powered payment platform that intelligently routes transactions across multiple channels while providing enterprise-grade fraud detection and security analytics.
+
+Key Features**
+
+Multi-Channel Routing
+- Intelligent Fallback: Automatic channel selection (Internet → Bluetooth LE → SMS → Local Storage)
+- Real-time Connectivity: Dynamic channel availability checking with DNS, HTTP, and ping validation
+- Offline Resilience: Complete transaction capability without internet connectivity
+
+AI-Powered Security Pipeline
+- 4-Layer Protection: Phishing detection, fraud scoring, trust analysis, and SMS verification
+- Neural Fraud Detection: PyTorch autoencoder for transaction anomaly detection
+- SMS Phishing Prevention: SVM-based classification of malicious payment notifications
+- Dynamic Trust Scoring: Real-time risk assessment based on user transaction patterns
+
+Advanced Analytics
+- Interactive Fraud Visualization: NetworkX-powered transaction risk graphs
+- Real-time Security Metrics: Live dashboard with approval rates and risk statistics
+- Comprehensive Audit Logging: Full transaction traceability for compliance
+
