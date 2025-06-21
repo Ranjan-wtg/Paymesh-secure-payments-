@@ -20,3 +20,24 @@ Advanced Analytics
 - Real-time Security Metrics: Live dashboard with approval rates and risk statistics
 - Comprehensive Audit Logging: Full transaction traceability for compliance
 
+Execution Manual
+
+Step-by-Step File Execution Order
+
+Setup (Run Once)
+1. python ledger.py - Initialize database
+2. python train_phising_svm.py - Train phishing model
+3. python training_autoencoder.py - Train fraud model
+
+Main Demo
+1. python test_multichannel.py - Test channel routing
+2. python test_your_phishing_system.py - Test security pipeline
+3. python paymesh_app.py - Launch full application
+4. python scam_graph_mapper.py - Generate fraud analytics
+
+Individual Component Testing
+- python fraud_test.py - Fraud detection only
+- python phishing_test.py - Phishing detection only  
+- python ledger_test.py - Database operations
+- python sync_server.py - Backend sync server
+
