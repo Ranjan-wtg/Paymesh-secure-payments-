@@ -2,7 +2,7 @@ PayMesh: Multi-Channel Secure Payment System
 
 A production-ready, AI-powered payment platform that intelligently routes transactions across multiple channels while providing enterprise-grade fraud detection and security analytics.
 
-Key Features**
+Key Features
 
 Multi-Channel Routing
 - Intelligent Fallback: Automatic channel selection (Internet → Bluetooth LE → SMS → Local Storage)
